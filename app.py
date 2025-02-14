@@ -64,8 +64,11 @@ def upload_pdf():
 
 @app.route('/ask', methods=['POST'])
 def ask_question():
+
     data = request.json
     question = data.get("question")
+
+    
 
     retriever = docsearch.as_retriever(search_kwargs={'k': 10})
 
@@ -79,7 +82,7 @@ def ask_question():
     Only return the helpful answer below and nothing else.
     Helpful answer:
     """
-
+    print("sssssssssssssssssssssssssssssssssssssssssss")
     PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
     chain_type_kwargs = {"prompt": PROMPT}
 
