@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 from langchain import PromptTemplate
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
+from textblob import TextBlob
 
 
 
@@ -86,6 +87,20 @@ def ask_question():
 
     data = request.json
     question = data.get("question")
+
+    blob = TextBlob(question)
+    confidence_score = 0.0
+    for sentence in blob.sentences:
+        confidence_score+=sentence.sentiment.polarity
+    confidence_score = confidence_score/len(blob.sentences)
+
+    if confidence_score < 0:
+        temp_val = 0.2
+    elif confidence_score < 0.5:
+        temp_val = 0.5
+    else:
+        temp_val = 0.8
+
     sliding_window = []
 
     retriever = docsearch.as_retriever(search_kwargs={'k': 10})
@@ -104,7 +119,7 @@ def ask_question():
     PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
     chain_type_kwargs = {"prompt": PROMPT}
 
-    llm = ChatOpenAI(model="gpt-4o", temperature=0.2, max_tokens=4096, api_key=OPENAI_API_KEY)
+    llm = ChatOpenAI(model="gpt-4o", temperature=temp_val, max_tokens=4096, api_key=OPENAI_API_KEY)
 
     
     print(memory)
