@@ -33,7 +33,7 @@ function askQuestion() {
 
     // Display user message on the left
     let userMessage = document.createElement("div");
-    userMessage.classList.add("self-start", "bg-blue-500", "text-white", "p-3", "rounded-lg", "mb-2", "max-w-xs");
+    userMessage.classList.add("self-end", "bg-gray-300", "text-gray-800", "p-3", "rounded-lg", "mb-2","w-1/2");
     userMessage.innerText = "You: " + question;
     chatHistory.appendChild(userMessage);
     
@@ -59,7 +59,7 @@ function askQuestion() {
         let len = data.answer.length
 
         let aiMessage = document.createElement("p");
-        aiMessage.classList.add("self-end", "bg-gray-300", "text-gray-800", "p-3", "rounded-lg", "mb-2","w-1/2");
+        aiMessage.classList.add("self-end", "bg-blue-300", "text-gray-800", "p-3", "rounded-lg", "mb-2","w-1/2");
         aiMessageDiv.appendChild(aiMessage);
         chatHistory.appendChild(aiMessageDiv);
 

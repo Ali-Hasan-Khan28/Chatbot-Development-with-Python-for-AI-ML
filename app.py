@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify, render_template
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -11,6 +12,10 @@ from uuid import uuid4
 import os
 from dotenv import load_dotenv
 from langchain import PromptTemplate
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationalRetrievalChain
+
+
 
 # Load environment variables
 load_dotenv()
@@ -23,17 +28,24 @@ INDEX_NAME = "applabqatar"
 
 # Initialize Pinecone
 pc = pt(api_key=PINECONE_API_KEY)
+
+pc.delete_index("applabqatar")
+
 if INDEX_NAME not in pc.list_indexes().names():
     pc.create_index(
-        name=INDEX_NAME,
-        dimension=1536,
+        name=INDEX_NAME, 
+        dimension=1536, 
         metric='cosine',
-        spec=ServerlessSpec(cloud='aws', region='us-east-1')
+        spec=ServerlessSpec(
+            cloud='aws',
+            region='us-east-1'  # or your specific region
+        )
     )
 index = pc.Index(INDEX_NAME)
 
 docsearch = PineconeVectorStore(embedding=OpenAIEmbeddings(api_key=OPENAI_API_KEY), index=index)
 
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 def process_pdf(file_path):
     loader = PyPDFLoader(file_path)
     documents = loader.load()
@@ -64,33 +76,42 @@ def upload_pdf():
 
 @app.route('/ask', methods=['POST'])
 def ask_question():
+    # Check if the index contains any data
+    stats = index.describe_index_stats()
+    print(stats)
+    total_vectors = stats.get('total_vector_count', 0)
+
+    if total_vectors == 0:
+        return jsonify({"answer": "No document uploaded. Please upload a PDF file first."}), 400
 
     data = request.json
     question = data.get("question")
-
-    
+    sliding_window = []
 
     retriever = docsearch.as_retriever(search_kwargs={'k': 10})
+
+    sliding_window.append(question)
 
     prompt_template = """
     Use the following pieces of information to answer the user's question.
     If you don't know the answer, just say that you don't know, don't try to make up an answer.
-
     Context: {context}
     Question: {question}
 
     Only return the helpful answer below and nothing else.
     Helpful answer:
     """
-    print("sssssssssssssssssssssssssssssssssssssssssss")
     PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
     chain_type_kwargs = {"prompt": PROMPT}
 
-    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.8, max_tokens=4096, api_key=OPENAI_API_KEY)
+    llm = ChatOpenAI(model="gpt-4o", temperature=0.2, max_tokens=4096, api_key=OPENAI_API_KEY)
+
     
-    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever, chain_type_kwargs=chain_type_kwargs)
+    print(memory)
+    qa = RetrievalQA.from_chain_type(llm=llm,memory=memory, chain_type="stuff", retriever=retriever, chain_type_kwargs=chain_type_kwargs)
 
     response = qa({"query": question})
+    sliding_window.append(response['result'])
     
     return jsonify({"answer": response['result']})
 

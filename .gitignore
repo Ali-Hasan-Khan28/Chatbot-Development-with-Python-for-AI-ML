@@ -173,3 +173,5 @@ cython_debug/
 ApplabQatar/*
 
 model.safetensors
+
+uploads/*
