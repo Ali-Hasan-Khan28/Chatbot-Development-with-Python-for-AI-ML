@@ -1,20 +1,15 @@
 
 from flask import Flask, request, jsonify, render_template
-from langchain.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import Pinecone
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import RetrievalQA
+# from langchain.vectorstores import Pinecone
 from pinecone import Pinecone as pt, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
-from uuid import uuid4
 import os
 from dotenv import load_dotenv
-from langchain import PromptTemplate
 from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationalRetrievalChain
-from textblob import TextBlob
+from utils.Prompt_preprocessing import preprocess
+from utils.Upload_PDF import process_pdf, upsert_to_pinecone
+from utils.conversation import converse
 
 
 
@@ -43,20 +38,8 @@ if INDEX_NAME not in pc.list_indexes().names():
         )
     )
 index = pc.Index(INDEX_NAME)
-
 docsearch = PineconeVectorStore(embedding=OpenAIEmbeddings(api_key=OPENAI_API_KEY), index=index)
-
 memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-def process_pdf(file_path):
-    loader = PyPDFLoader(file_path)
-    documents = loader.load()
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=20)
-    text_chunks = text_splitter.split_documents(documents)
-    return text_chunks
-
-def upsert_to_pinecone(text_chunks):
-    uuids = [str(uuid4()) for _ in range(len(text_chunks))]
-    docsearch.add_documents(documents=text_chunks, ids=uuids)
 
 @app.route('/')
 def home():
@@ -72,14 +55,13 @@ def upload_pdf():
     file_path = os.path.join("uploads", file.filename)
     file.save(file_path)
     text_chunks = process_pdf(file_path)
-    upsert_to_pinecone(text_chunks)
+    upsert_to_pinecone(text_chunks,docsearch)
     return jsonify({"message": "File processed and upserted successfully"})
 
 @app.route('/ask', methods=['POST'])
 def ask_question():
     # Check if the index contains any data
     stats = index.describe_index_stats()
-    print(stats)
     total_vectors = stats.get('total_vector_count', 0)
 
     if total_vectors == 0:
@@ -88,45 +70,8 @@ def ask_question():
     data = request.json
     question = data.get("question")
 
-    blob = TextBlob(question)
-    confidence_score = 0.0
-    for sentence in blob.sentences:
-        confidence_score+=sentence.sentiment.polarity
-    confidence_score = confidence_score/len(blob.sentences)
-
-    if confidence_score < 0:
-        temp_val = 0.2
-    elif confidence_score < 0.5:
-        temp_val = 0.5
-    else:
-        temp_val = 0.8
-
-    sliding_window = []
-
-    retriever = docsearch.as_retriever(search_kwargs={'k': 10})
-
-    sliding_window.append(question)
-
-    prompt_template = """
-    Use the following pieces of information to answer the user's question.
-    If you don't know the answer, just say that you don't know, don't try to make up an answer.
-    Context: {context}
-    Question: {question}
-
-    Only return the helpful answer below and nothing else.
-    Helpful answer:
-    """
-    PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-    chain_type_kwargs = {"prompt": PROMPT}
-
-    llm = ChatOpenAI(model="gpt-4o", temperature=temp_val, max_tokens=4096, api_key=OPENAI_API_KEY)
-
-    
-    print(memory)
-    qa = RetrievalQA.from_chain_type(llm=llm,memory=memory, chain_type="stuff", retriever=retriever, chain_type_kwargs=chain_type_kwargs)
-
-    response = qa({"query": question})
-    sliding_window.append(response['result'])
+    temp_val = preprocess(question)
+    response = converse(docsearch,temp_val,OPENAI_API_KEY,memory,question)
     
     return jsonify({"answer": response['result']})
 
