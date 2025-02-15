@@ -1,7 +1,7 @@
 
 from flask import Flask, request, jsonify, render_template
-from langchain.embeddings import OpenAIEmbeddings
-# from langchain.vectorstores import Pinecone
+from langchain_openai import OpenAIEmbeddings
+
 from pinecone import Pinecone as pt, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 import os
@@ -25,7 +25,8 @@ INDEX_NAME = "applabqatar"
 # Initialize Pinecone
 pc = pt(api_key=PINECONE_API_KEY)
 
-pc.delete_index("applabqatar")
+if INDEX_NAME in pc.list_indexes().names():
+    pc.delete_index("applabqatar")
 
 if INDEX_NAME not in pc.list_indexes().names():
     pc.create_index(

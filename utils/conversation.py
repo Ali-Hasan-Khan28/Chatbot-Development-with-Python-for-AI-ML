@@ -1,5 +1,5 @@
-from langchain import PromptTemplate
-from langchain.chat_models import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
+from langchain_community.chat_models import ChatOpenAI
 from langchain.chains import RetrievalQA
 
     
@@ -13,6 +13,7 @@ def converse(docsearch,temp_val,OPENAI_API_KEY,memory,question):
     Question: {question}
 
     Only return the helpful answer below and nothing else.
+    You can also greet the customer, or talk in general.
     Helpful answer:
     """
     PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
