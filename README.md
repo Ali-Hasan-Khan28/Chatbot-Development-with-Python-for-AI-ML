@@ -1,5 +1,4 @@
 # Chatbot-Development-with-Python-for-AI-ML
-# Chatbot Development with Python for AI/ML
 
 This repository contains a chatbot built using **Python, Flask, and OpenAI**, containerized with **Docker** for easy deployment.
 
@@ -42,7 +41,7 @@ Replace "yourusername" with your actual Docker Hub username.
 
 Once the image is built, start the chatbot container with:
 ```bash
-docker run -d -p 5000:5000 alihasankhan/python-chatbot
+docker run -d -p 5000:5000 "yourusername"/python-chatbot
 ```
 
 ### 7. Access the Chatbot
